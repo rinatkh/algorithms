@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/algorithms.dir/seventh.cpp.o -o algorithms 
