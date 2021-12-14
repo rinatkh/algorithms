@@ -30,11 +30,11 @@ public:
 
     ~HashTable();
 
-    bool Has(const T &key) const;
+    bool Has(const T &data) const;
 
-    bool Add(const T &key);
+    bool Add(const T &data);
 
-    bool Delete(const T &key);
+    bool Delete(const T &data);
 
 private:
     struct HashTableCell {
@@ -43,7 +43,9 @@ private:
         unsigned int Hash;
 
         HashTableCell() : Hash(0), status(EMPTY) {}
-        explicit HashTableCell(const T &data_, unsigned int Hash_) : data(data_), status(DATA), Hash(Hash_) {}
+
+        explicit HashTableCell(const T &data_, unsigned int Hash_) : data(data_), status(DATA),
+                                                                     Hash(Hash_) {}
     };
 
     H hasher;
@@ -64,7 +66,7 @@ HashTable<T, H>::~HashTable() {
 }
 
 template<class T, class H>
-bool HashTable<T, H>::Has(const T &key) const {
+bool HashTable<T, H>::Has(const T &data) const {
     //del - идем дальше
     //data data== ? true : дальше
     //empty return false
@@ -73,16 +75,41 @@ bool HashTable<T, H>::Has(const T &key) const {
 }
 
 template<class T, class H>
-bool HashTable<T, H>::Add(const T &key) {
+bool HashTable<T, H>::Add(const T &data) {
     //del - запоминаем позицию и  идем дальше
     //data data== ? false : дальше
     //empty заполняем в del позицию или сюда
 
-    return false;
+    if (keysCount >= table.size() * 0.75)
+        growTable();
+
+    unsigned int hash = hasher(data);
+    unsigned int abs_hash = hash % table.size();
+    HashTableCell *cell = table[hash];
+
+    unsigned int first_del = -1;
+    for (int i = 0; i < table.size() && table[hash] != nullptr; i++) {
+        if (table[hash]->data == data) {
+            return false;
+        }
+        else if ((table[hash]->status == DELETE) && (first_del == -1)) {
+            first_del = hash;
+        }
+        else if(table[hash]->status == EMPTY) {
+            table[hash]->data = data;
+            keysCount++;
+            return true;
+        }
+        hash = (hash + i + 1) % table.size();
+    }
+
+    table[hash] = new HashTableCell(data, hash);
+    keysCount++;
+    return true;
 }
 
 template<class T, class H>
-bool HashTable<T, H>::Delete(const T &key) {
+bool HashTable<T, H>::Delete(const T &data) {
 
     //del - идем дальше
     //data data== ? помечаем del true : дальше
