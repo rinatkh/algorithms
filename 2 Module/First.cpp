@@ -9,11 +9,11 @@ enum status {
 };
 
 struct StringHasher {
-    unsigned int operator()(const std::string &str) const {
-        unsigned int hash = 0;
-        for (char i: str) {
-            hash = hash * 17 + i;
-        }
+    long long unsigned int operator()(const std::string &str) const {
+        long long unsigned int hash = 0;
+        for (char i: str)
+            hash = hash * 7 + i;
+
         return hash;
     }
 };
@@ -22,7 +22,9 @@ struct StringHasher {
 template<class T, class H>
 class HashTable {
 public:
-    explicit HashTable(const H &hasher_);
+    explicit HashTable(const H &hasher_, size_t initial_size = 8);
+
+    HashTable() = delete;
 
     HashTable(const HashTable &table) = delete;
 
@@ -30,119 +32,151 @@ public:
 
     ~HashTable();
 
-    bool Has(const T &data) const;
+    bool has(const T &data) const;
 
-    bool Add(const T &data);
+    bool add(const T &data);
 
-    bool Delete(const T &data);
+    bool del(const T &data);
 
 private:
     struct HashTableCell {
         T data;
         int status;
-        unsigned int Hash;
+        long long unsigned int hash;
 
-        HashTableCell() : Hash(0), status(EMPTY) {}
+        HashTableCell() : data(), hash(0), status(EMPTY) {}
 
-        explicit HashTableCell(const T &data_, unsigned int Hash_) : data(data_), status(DATA),
-                                                                     Hash(Hash_) {}
+        explicit HashTableCell(const T &data_, long long unsigned int hash_) : data(data_),
+                                                                               status(DATA),
+                                                                               hash(hash_) {}
+
+        ~HashTableCell() = default;
     };
 
     H hasher;
-    int keysCount;
-    std::vector<HashTableCell *> table;
+    size_t keys_count;
+    std::vector<HashTableCell> table;
 
     void growTable();
 };
 
 template<class T, class H>
-HashTable<T, H>::HashTable(const H &hasher_) {
-
+HashTable<T, H>::HashTable(const H &hasher_, size_t initial_size) :
+        hasher(hasher_),
+        keys_count(0),
+        table(8) {
+    for (auto &i: table)
+        i = HashTableCell();
 }
 
 template<class T, class H>
-HashTable<T, H>::~HashTable() {
+HashTable<T, H>::~HashTable() = default;
 
-}
 
 template<class T, class H>
-bool HashTable<T, H>::Has(const T &data) const {
-    //del - идем дальше
-    //data data== ? true : дальше
-    //empty return false
+bool HashTable<T, H>::has(const T &data) const {
+    long long unsigned int abs_hash = hasher(data) % table.size();
 
+    for (int i = 0; i < table.size(); ++i) {
+        if (table[abs_hash].data == data && table[abs_hash].status == DATA) {
+            return true;
+        } else if (table[abs_hash].status == EMPTY)
+            return false;
+        abs_hash = (abs_hash + i + 1) % table.size();
+    }
     return false;
 }
 
 template<class T, class H>
-bool HashTable<T, H>::Add(const T &data) {
-    //del - запоминаем позицию и  идем дальше
-    //data data== ? false : дальше
-    //empty заполняем в del позицию или сюда
-
-    if (keysCount >= table.size() * 0.75)
+bool HashTable<T, H>::add(const T &data) {
+    if (keys_count >= table.size() * 0.75) {
         growTable();
-
-    unsigned int hash = hasher(data);
-    unsigned int abs_hash = hash % table.size();
-    HashTableCell *cell = table[hash];
-
-    unsigned int first_del = -1;
-    for (int i = 0; i < table.size() && table[hash] != nullptr; i++) {
-        if (table[hash]->data == data) {
-            return false;
-        }
-        else if ((table[hash]->status == DELETE) && (first_del == -1)) {
-            first_del = hash;
-        }
-        else if(table[hash]->status == EMPTY) {
-            table[hash]->data = data;
-            keysCount++;
-            return true;
-        }
-        hash = (hash + i + 1) % table.size();
     }
 
-    table[hash] = new HashTableCell(data, hash);
-    keysCount++;
+    long long unsigned int hash = hasher(data);
+    long long unsigned int abs_hash = hash % table.size();
+
+    long long unsigned int first_del = -1;
+    for (int i = 0; i < table.size(); i++) {
+        if (table[abs_hash].data == data && table[abs_hash].status == DATA) {
+            return false;
+        } else if ((table[abs_hash].status == DELETE) && (first_del == -1)) {
+            first_del = abs_hash;
+        } else if (table[abs_hash].status == EMPTY) {
+            table[abs_hash] = HashTableCell(data, hash);
+            keys_count++;
+            return true;
+        }
+        abs_hash = (abs_hash + i + 1) % table.size();
+    }
+    table[first_del] = HashTableCell(data, hash);
+    keys_count++;
     return true;
 }
 
 template<class T, class H>
-bool HashTable<T, H>::Delete(const T &data) {
+bool HashTable<T, H>::del(const T &data) {
+    long long unsigned int hash = hasher(data);
+    long long unsigned int abs_hash = hash % table.size();
 
-    //del - идем дальше
-    //data data== ? помечаем del true : дальше
-    //empty return false
-
+    for (int i = 0; i < table.size(); i++) {
+        if (table[abs_hash].data == data && table[abs_hash].status != DELETE) {
+            table[abs_hash].status = DELETE;
+            return true;
+        } else if (table[abs_hash].status == EMPTY)
+            return false;
+        abs_hash = (abs_hash + i + 1) % table.size();
+    }
     return false;
 }
 
 template<class T, class H>
 void HashTable<T, H>::growTable() {
+    std::vector<HashTableCell> new_table(table.size() * 2);
+    for (auto &i: new_table)
+        i = HashTableCell();
 
+    keys_count = 0;
+    for (int i = 0; i < table.size(); ++i) {
+        if (table[i].status == DATA) {
+            keys_count++;
+            long long unsigned int abs_hash = table[i].hash % new_table.size();
+            for (int j = 0; j < table.size(); ++j) {
+                if (new_table[abs_hash].status == EMPTY) {
+                    new_table[abs_hash] = HashTableCell(table[i].data, table[i].hash);
+                    break;
+                } else
+                    abs_hash = (abs_hash + j + 1) % new_table.size();
+            }
+        }
+    }
+    table = std::move(new_table);
 }
 
 int main() {
     StringHasher hasher;
     HashTable<std::string, StringHasher> table(hasher);
-    char operation = 0;
+    char operation;
     std::string data;
+
     while (std::cin >> operation >> data) {
         switch (operation) {
-            case '+' :
-                std::cout << (table.Add(data) ? "OK" : "FAIL") << std::endl;
+            case '+': {
+                std::cout << (table.add(data) ? "OK" : "FAIL") << std::endl;
                 break;
-            case '-' :
-                std::cout << (table.Delete(data) ? "OK" : "FAIL") << std::endl;
+            }
+            case '-': {
+                std::cout << (table.del(data) ? "OK" : "FAIL") << std::endl;
                 break;
-            case '?' :
-                std::cout << (table.Has(data) ? "OK" : "FAIL") << std::endl;
+            }
+            case '?': {
+                std::cout << (table.has(data) ? "OK" : "FAIL") << std::endl;
                 break;
+            }
             default:
                 assert(false);
-
         }
     }
+
     return 0;
 }
