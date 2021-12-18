@@ -2,6 +2,8 @@
 #include <cassert>
 #include <iostream>
 #include <queue>
+#include <cmath>
+
 
 template<class T>
 struct compare_default {
@@ -13,7 +15,8 @@ struct compare_default {
 template<class T, class Compare = compare_default<T>>
 class BTree {
 public:
-    explicit BTree(size_t _t, const Compare &compare_ = compare_default<T>()) : root(nullptr),
+    explicit BTree(size_t _t, const Compare &compare_ = compare_default<T>()) : h(0),
+                                                                                root(nullptr),
                                                                                 t(_t),
                                                                                 compare(compare_) {
         assert(t >= 2);
@@ -23,7 +26,11 @@ public:
 
     void insert(const T &key);
 
-public:
+    void print_tree();
+
+    size_t h;
+
+private:
 
     struct Node {
         bool is_leaf;
@@ -43,22 +50,31 @@ public:
 
     void split_child(Node *x, int idx);
 
-    void print_tree(Node *node, int i = 0);
+    void fill_array_for_print(BTree::Node *node,
+                              size_t indent,
+                              std::vector<std::pair<int, std::pair<size_t, size_t>>> &array);
 };
 
 template<class T, class Compare>
 BTree<T, Compare>::~BTree() {
     if (root != nullptr) {
-        for (auto &i: root->children) {
-            delete i;
+        std::queue<Node *> tmp;
+        Node *node = root;
+        tmp.push(node);
+        while (!tmp.empty()) {
+            Node *current = tmp.front();
+            for (auto &i: current->children) {
+                tmp.push(i);
+            }
+            delete current;
+            tmp.pop();
         }
-        delete root;
     }
 }
 
 template<class T, class Compare>
 void BTree<T, Compare>::insert(const T &key) {
-    if (root == nullptr) {
+    if (!root) {
         root = new Node(true);
     }
     if (is_full_node(root)) {
@@ -87,7 +103,7 @@ void BTree<T, Compare>::insert_non_full(BTree::Node *node, const T &key) {
         }
         if (is_full_node(node->children[pos + 1])) {
             split_child(node, pos + 1);
-            if (key > node->keys[pos + 1]) {
+            if (compare(node->keys[pos + 1], key)) {
                 pos++;
             }
         }
@@ -105,46 +121,67 @@ void BTree<T, Compare>::split_child(BTree::Node *x, int idx) {
     Node *y = x->children[idx];
     Node *z = new Node(y->is_leaf);
 
-    for (size_t j = 1; j < t - 1; j++) {
+    for (size_t j = 0; j < t - 1; j++) {
         z->keys.push_back(y->keys[j + t]);
     }
 
     if (!y->is_leaf) {
-        for (size_t j = 1; j < t; j++)
+        for (size_t j = 0; j < t; j++)
             z->children.push_back(y->children[j + t]);
     }
+    x->keys.resize(x->keys.size() + 1);
+    x->children.resize(x->children.size() + 1);
 
-    size_t size = x->children.size();
-    x->children.resize(size + 1);
-    for (size_t j = x->children.size() - 1; j < idx + 1; j--) {
+    for (size_t j = x->keys.size() - 1; j > idx; j--) {
+        x->keys[j] = x->keys[j - 1];
+    }
+    x->keys[idx] = y->keys[t - 1];
+    y->keys.resize(t - 1);
+
+    if (!y->is_leaf) {
+        y->children.resize(t);
+    }
+    for (size_t j = x->children.size() - 1; j > idx + 1; j--) {
         x->children[j] = x->children[j - 1];
     }
     x->children[idx + 1] = z;
-
-    size = x->keys.size();
-    x->keys.resize(size + 1);
-    for (size_t j = x->keys.size() - 1; j < idx; j--) {
-        x->keys[j] = x->keys[j - 1];
-    }
-
-
-    x->keys[idx] = y->keys[t];
-    y->keys.resize(t - 1);
-
 }
 
 template<class T, class Compare>
-void BTree<T, Compare>::print_tree(BTree::Node *node, int i) {
-    std::cout << std::string(i, ' ');
-    std::cout << "keys: [";
-    int q = 0;
-    for (auto it = node->keys.begin(); it != node->keys.end(); it++) {
-        std::cout << *it << ", ";
+void BTree<T, Compare>::fill_array_for_print(BTree::Node *node,
+                                             size_t indent,
+                                             std::vector<std::pair<int, std::pair<size_t, size_t>>> &array) {
+    if (node != nullptr) {
+        for (auto &i: node->keys) {
+            array.push_back({i, {indent, node->keys.size()}});
+        }
+        for (auto child: node->children) {
+            h = indent + 1;
+            fill_array_for_print(child, indent + 1, array);
+        }
     }
-    std::cout << "]" << std::endl;
+}
 
-    for (auto child: node->children) {
-        print_tree(child, i + 4);
+template<class T, class Compare>
+void BTree<T, Compare>::print_tree() {
+    if (!root) {
+        return;
+    }
+    std::vector<std::pair<int, std::pair<size_t, size_t>>> array;
+    fill_array_for_print(root, 0, array);
+    for (auto &i: array) {
+        std::cout << i.first << " " << i.second.first << " " << i.second.second << "\n";
+    }
+    size_t count = 1;
+    for (size_t j = 0; j <= h; ++j) {
+        for (auto &i: array) {
+            if ((i.second.first == j) && (count++ < (i.second.second - 1))) {
+                std::cout << i.first << " ";
+            } else if ((i.second.first == j) && (count++ == (i.second.second - 1))) {
+                std::cout << i.first << std::endl;
+            }
+        }
+        count = 1;
     }
 }
 
@@ -154,10 +191,11 @@ int main() {
     std::cin >> t;
     BTree<int> tree(t);
     int key = 0;
+    size_t number = 0;
     while (std::cin >> key) {
         tree.insert(key);
-        tree.print_tree(tree.root);
+        number++;
     }
-    tree.print_tree(tree.root);
+    tree.print_tree();
     return 0;
 }
