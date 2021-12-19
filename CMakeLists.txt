@@ -3,4 +3,4 @@ project(algorithms)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(algorithms "2 Module/third.cpp")
+add_executable(algorithms "2 Module/fourth.cpp")

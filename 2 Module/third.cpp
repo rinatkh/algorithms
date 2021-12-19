@@ -2,8 +2,6 @@
 #include <cassert>
 #include <iostream>
 #include <queue>
-#include <cmath>
-
 
 template<class T>
 struct compare_default {
@@ -52,7 +50,7 @@ private:
 
     void fill_array_for_print(BTree::Node *node,
                               size_t indent,
-                              std::vector<std::pair<int, std::pair<size_t, size_t>>> &array);
+                              std::vector<std::pair<int, size_t>> &array);
 };
 
 template<class T, class Compare>
@@ -150,10 +148,10 @@ void BTree<T, Compare>::split_child(BTree::Node *x, int idx) {
 template<class T, class Compare>
 void BTree<T, Compare>::fill_array_for_print(BTree::Node *node,
                                              size_t indent,
-                                             std::vector<std::pair<int, std::pair<size_t, size_t>>> &array) {
+                                             std::vector<std::pair<int, size_t>> &array) {
     if (node != nullptr) {
         for (auto &i: node->keys) {
-            array.push_back({i, {indent, node->keys.size()}});
+            array.push_back({i, indent});
         }
         for (auto child: node->children) {
             h = indent + 1;
@@ -167,21 +165,28 @@ void BTree<T, Compare>::print_tree() {
     if (!root) {
         return;
     }
-    std::vector<std::pair<int, std::pair<size_t, size_t>>> array;
+    std::vector<std::pair<int, size_t>> array;
     fill_array_for_print(root, 0, array);
-    for (auto &i: array) {
-        std::cout << i.first << " " << i.second.first << " " << i.second.second << "\n";
-    }
-    size_t count = 1;
+
+    std::vector<int> array_print;
     for (size_t j = 0; j <= h; ++j) {
         for (auto &i: array) {
-            if ((i.second.first == j) && (count++ < (i.second.second - 1))) {
-                std::cout << i.first << " ";
-            } else if ((i.second.first == j) && (count++ == (i.second.second - 1))) {
-                std::cout << i.first << std::endl;
+            if (i.second == j) {
+                array_print.push_back(i.first);
             }
         }
-        count = 1;
+        for (auto it = array_print.begin(); it != array_print.end(); ++it) {
+            if (it + 1 == array_print.end()) {
+                if (j != h) {
+                    std::cout << *it << std::endl;
+                } else {
+                    std::cout << *it;
+                }
+            } else {
+                std::cout << *it << " ";
+            }
+        }
+        array_print.clear();
     }
 }
 
