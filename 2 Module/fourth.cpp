@@ -39,8 +39,6 @@ protected:
     int size;
     Compare cmp;
 
-    TreeNode *find_min(TreeNode *_root);
-
 private:
 
     std::pair<bool, TreeNode *> find(const T &key);
@@ -81,16 +79,6 @@ bool BinaryTree<T, Compare>::search(const T &key) {
     return find(key).first;
 }
 
-template<class T, class Compare>
-class BinaryTree<T, Compare>::TreeNode *BinaryTree<T, Compare>::find_min(TreeNode *_root) {
-    if (_root == nullptr) {
-        return nullptr;
-    }
-    while (_root->left != nullptr) {
-        _root = _root->left;
-    }
-    return _root;
-}
 
 
 template<class T, class Compare>
@@ -146,7 +134,8 @@ private:
                                                       const T &key);
 
     class BinaryTree<T, Compare>::TreeNode *
-    remove_min(class BinaryTree<T, Compare>::TreeNode *root);
+    find_and_remove_min(class BinaryTree<T, Compare>::TreeNode *root,
+                        class BinaryTree<T, Compare>::TreeNode *&min);
 
     class BinaryTree<T, Compare>::TreeNode *
     balance(class BinaryTree<T, Compare>::TreeNode *balancing);
@@ -271,8 +260,8 @@ class BinaryTree<T, Compare>::TreeNode *AVLTree<T, Compare>::avl_erase
             delete root;
             return tmp;
         }
-        class BinaryTree<T, Compare>::TreeNode *min = BinaryTree<T, Compare>::find_min(root->right);
-        root->right = remove_min(root->right);
+        class BinaryTree<T, Compare>::TreeNode *min;
+        root->right = find_and_remove_min(root->right, min);
         class BinaryTree<T, Compare>::TreeNode *tmp_left = root->left;
         class BinaryTree<T, Compare>::TreeNode *tmp_right = root->right;
         delete root;
@@ -285,15 +274,19 @@ class BinaryTree<T, Compare>::TreeNode *AVLTree<T, Compare>::avl_erase
 }
 
 template<class T, class Compare>
-class BinaryTree<T, Compare>::TreeNode *AVLTree<T, Compare>::remove_min
-        (class BinaryTree<T, Compare>::TreeNode *root) {
+class BinaryTree<T, Compare>::TreeNode *
+AVLTree<T, Compare>::find_and_remove_min(class BinaryTree<T, Compare>::TreeNode *root,
+                                         class BinaryTree<T, Compare>::TreeNode *&min) {
+    if (root == nullptr) {
+        min = root;
+    }
 
     if (root->left == nullptr) {
+        min = root;
         return root->right;
     }
 
-    root->left = remove_min(root->left);
-
+    root->left = find_and_remove_min(root->left, min);
     return balance(root);
 }
 
